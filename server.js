@@ -2,7 +2,12 @@
 const http=require('http'),fs=require('fs'),cr=require('crypto'),path=require('path');
 const PORT=process.env.PORT||3000,MIN=+process.env.MIN_PLAYERS||3,PUB=n=>fs.readFileSync(path.join(__dirname,'public',n));
 const N=s=>(s||'').replace(/[ً-ٟـ]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه').replace(/\s+/g,' ').trim().replace(/^(نادي |ال)/,'').replace(/ ال/g,' ');
-const G=s=>s.split(',').map(x=>x.split('|').map(N));
+const N2=s=>N(s).replace(/ؤ/g,'و').replace(/ئ/g,'ي').replace(/ء/g,'').replace(/(.)\1+/g,'$1').replace(/\s/g,'');
+const dist=(a,b)=>{const m=a.length,n=b.length,d=[];for(let i=0;i<=m;i++){d[i]=[i];for(let j=1;j<=n;j++)d[i][j]=i?0:j}
+ for(let i=1;i<=m;i++)for(let j=1;j<=n;j++){d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])d[i][j]=Math.min(d[i][j],d[i-2][j-2]+1)}return d[m][n]};
+const th=l=>l<=3?0:l<=5?1:2;
+const near=(a,b)=>{const d=dist(a,b);return d<=th(Math.min(a.length,b.length))&&Math.abs(a.length-b.length)<=2?d:9};
+const G=s=>{const a=s.split(',').map(x=>x.split('|')),r=a.map(v=>v.map(N2));r.disp=a.map(v=>v[0]);return r};
 const R1=[{lv:'سهل',q:'اذكر دولة عربية تقع في قارة آسيا',g:G('السعودية,الإمارات,قطر,الكويت,البحرين,عمان,اليمن,العراق,سوريا,لبنان,الأردن,فلسطين')},
 {lv:'سهل',q:'اذكر مدينة سعودية',g:G('الرياض,جدة,مكة|مكة المكرمة,المدينة|المدينة المنورة,الدمام,الخبر,الطائف,تبوك,أبها,بريدة,حائل,جازان,نجران,الجبيل,ينبع,الهفوف|الأحساء,الظهران,عرعر,سكاكا,الباحة,خميس مشيط,القطيف,الخرج,الدرعية,العلا')},
 {lv:'متوسط',q:'اذكر شهراً من أشهر السنة الهجرية',g:G('محرم,صفر,ربيع الأول,ربيع الآخر|ربيع الثاني,جمادى الأولى,جمادى الآخرة|جمادى الثانية,رجب,شعبان,رمضان,شوال,ذو القعدة,ذو الحجة')}];
@@ -33,8 +38,15 @@ const q1=g=>g.i<3?R1[g.i]:T1[(g.i-3)%2];
 const mp=r=>[0,1].map(t=>r.sel[1][t][r.g.i]);
 const okN=g=>g.ans.filter(x=>x.s==='ok').length;
 const pzOf=g=>PZ[g.p];
-function evalR1(r){const g=r.g,q=q1(g);return[0,1].map(t=>{const keys=[];const it=r.sel[0][t].map(pid=>{const text=g.sub[pid]||'',n=N(text),gi=q.g.findIndex(x=>x.includes(n));let ok=!!text&&gi>=0;if(g.ov[pid]!==undefined)ok=g.ov[pid];const key=gi>=0?'g'+gi:'t'+n,dup=!!text&&keys.includes(key);if(text)keys.push(key);
- return{pid,name:(r.players.get(pid)||{}).name||'؟',text,ok,dup}});return{it,pass:it.length===3&&it.every(x=>x.text&&x.ok&&!x.dup)}})}
+const KNOWN=()=>{if(!KNOWN.s)KNOWN.s=[...R1,...T1,...R2].flatMap(q=>q.g.flat());return KNOWN.s};
+// Arabic-tolerant matching: normalise, then allow small typos; ambiguous / unknown answers are flagged for the presenter instead of guessed
+function matchQ(q,text){const n=N2(text);if(!n)return{gi:-1};let best=-1,bd=9,tie=false;
+ q.forEach((grp,i)=>{let d=9;for(const v of grp)d=Math.min(d,v===n?0:near(n,v));if(d<bd){bd=d;best=i;tie=false}else if(d===bd&&d<9)tie=true});
+ if(bd<9&&!tie)return{gi:best,fz:bd>0};if(tie)return{gi:-1,unk:1};
+ if(KNOWN().some(v=>v===n||near(n,v)<9))return{gi:-1,wrong:1};return{gi:-1,unk:1}}
+function evalR1(r){const g=r.g,q=q1(g);return[0,1].map(t=>{const keys=[];const it=r.sel[0][t].map(pid=>{const text=g.sub[pid]||'',m=matchQ(q.g,text);let ok=!!text&&m.gi>=0,unk=!!text&&m.gi<0&&!m.wrong;const man=g.ov[pid]!==undefined;if(man){ok=g.ov[pid];unk=false}
+ const key=m.gi>=0?'g'+m.gi:'t'+N2(text),dup=!!text&&keys.some(k=>k===key||(k[0]==='t'&&key[0]==='t'&&near(k.slice(1),key.slice(1))<9));if(text)keys.push(key);
+ return{pid,name:(r.players.get(pid)||{}).name||'؟',text,ok,dup,unk,man,fz:m.fz?q.g.disp[m.gi]:null}});return{it,pass:it.length===3&&it.every(x=>x.text&&x.ok&&!x.dup)}})}
 function endRound(r,ri,w,txt){if(r.res[ri])return;r.res[ri]=w===null?{w:null,txt,none:1}:{w,txt};if(w!==null)r.tot[w]+=r.pts[ri];r.ph='rres';clearTimeout(r.tm)}
 function fill(r){for(const ri of[0,1])for(const t of[0,1]){const s=r.sel[ri][t].filter(id=>r.players.has(id));for(const p of team(r,t)){if(s.length>=3)break;if(!s.includes(p.id))s.push(p.id)}r.sel[ri][t]=s}}
 function newG(r){const ri=r.ri;if(ri===0)r.g={kind:1,i:0,wins:[0,0],ph:'in',sub:{},ov:{},show:0,out:null,T:T0()};
@@ -45,11 +57,8 @@ function resetPz(r,p){const g=r.g;Object.assign(g,{p,ph:'ready',tried:[0,0],bz:n
 function doAns(r,pid,text){const g=r.g;if(r.ph!=='play'||!g||g.kind!==1||g.ph!=='in')return'ليس وقت الإجابة';if(![...r.sel[0][0],...r.sel[0][1]].includes(pid))return'لست من المشاركين في هذه الجولة';
  text=String(text||'').trim().slice(0,40);if(!text)return'اكتب إجابة';if(g.sub[pid])return'تم إرسال إجابتك مسبقاً';g.sub[pid]=text;
  if([...r.sel[0][0],...r.sel[0][1]].every(id=>g.sub[id]))g.ph='rev'}
-function doBid(r,t,v){const g=r.g;if(r.ph!=='play'||!g||g.kind!==2||g.ph!=='bid')return'ليست مرحلة المزايدة';v=parseInt(v);if(!(v>g.bid&&v<=30))return'المزايدة يجب أن تكون أعلى من '+AR(g.bid)+' وحتى ٣٠';if(g.bt===t)return'الدور على اللاعب الآخر';g.bid=v;g.bt=t}
+function doInc(r,t){const g=r.g;if(r.ph!=='play'||!g||g.kind!==2||g.ph!=='bid')return'ليست مرحلة المزايدة';if(g.bt===t)return'انتظر مزايدة الخصم أو انتظر انسحابه';if(g.bid>=30)return'وصلت المزايدة للحد الأقصى (٣٠)';g.bid++;g.bt=t}
 function doWd(r,t){const g=r.g;if(r.ph!=='play'||!g||g.kind!==2||g.ph!=='bid')return'ليست مرحلة المزايدة';if(g.bt==null)return'لم تبدأ المزايدة بعد';if(g.bt===t)return'أنت صاحب أعلى مزايدة';g.at=g.bt;g.ph='ans'}
-function chk2(r){const g=r.g;if(okN(g)>=g.bid&&!g.exp){tpause(r);g.exp=1}}
-function doAdd2(r,text){const g=r.g;if(r.ph!=='play'||!g||g.kind!==2||g.ph!=='ans')return'ليست مرحلة الإجابة';if(!g.T.run||g.exp)return'الوقت غير جارٍ';text=String(text||'').trim().slice(0,40);if(!text)return'اكتب إجابة';
- const n=N(text),gi=R2[g.i].g.findIndex(x=>x.includes(n)),d=g.ans.some(x=>x.n===n||(gi>=0&&x.g===gi));g.ans.push({a:text,n,g:gi,s:d?'d':gi>=0?'ok':'p'});chk2(r)}
 function doBuzz(r,t,by,manual){const g=r.g;if(r.ph!=='play'||!g||g.kind!==3||g.ph!=='run'||!g.T.run)return'ليس وقت الجرس';if(g.tried[t])return'فريقكم استخدم فرصته';tpause(r);g.ph='buzz';g.bz=t;g.by=by;g.bm=manual?1:0;g.tried[t]=1}
 // ---- views (role-filtered)
 function view(r,role,pid){const g=r.g,host=role==='host',scr=role==='screen',me=r.players.get(pid);
@@ -58,9 +67,9 @@ function view(r,role,pid){const g=r.g,host=role==='host',scr=role==='screen',me=
  if(role==='player')o.me=me?{id:me.id,name:me.name,team:me.team}:null;
  if(r.ph!=='play'||!g)return o;const v={kind:g.kind,i:g.i,ph:g.ph,T:g.T};o.g=v;
  if(g.kind===1){const q=q1(g);Object.assign(v,{q:q.q,lv:q.lv,wins:g.wins,show:g.show,subs:Object.keys(g.sub)});
-  if(role==='player'){v.mine=g.sub[pid]||null;if(g.ph==='res'){const e=evalR1(r);for(const t of[0,1])for(const x of e[t].it)if(x.pid===pid)v.verdict={ok:x.ok&&!x.dup,dup:x.dup}}}
+  if(role==='player'){v.mine=g.sub[pid]||null;if(g.ph==='res'){const e=evalR1(r);for(const t of[0,1])for(const x of e[t].it)if(x.pid===pid)v.verdict={ok:x.ok&&!x.dup,dup:x.dup,unk:x.unk}}}
   if(host&&(g.ph==='rev'||g.ph==='res')||scr&&(g.show||g.ph==='res')&&(g.ph==='rev'||g.ph==='res')){v.eval=evalR1(r);if(!host)v.eval.forEach(t=>t.it.forEach(x=>{delete x.pid}))}}
- if(g.kind===2){Object.assign(v,{q:R2[g.i].q,lv:R2[g.i].lv,bid:g.bid,bt:g.bt,w:g.w,at:g.at,exp:g.exp,sx:g.sx,ans:g.ans.map(x=>({a:x.a,s:x.s})),mp:mp(r).map(id=>{const p=r.players.get(id);return p?{id:p.id,name:p.name,manual:!p.tok?1:0,off:(!p.tok||!p.on)?1:0}:null})})}
+ if(g.kind===2){Object.assign(v,{q:R2[g.i].q,lv:R2[g.i].lv,bid:g.bid,bt:g.bt,w:g.w,at:g.at,exp:g.exp,sx:g.sx,mp:mp(r).map(id=>{const p=r.players.get(id);return p?{id:p.id,name:p.name,manual:!p.tok?1:0,off:(!p.tok||!p.on)?1:0}:null})})}
  if(g.kind===3){const show=['run','buzz','end'].includes(g.ph);Object.assign(v,{p:g.p,mode:g.mode,sc:g.sc,tried:g.tried,bz:g.bz,by:g.by,bm:g.bm,who:g.who,puz:show?pzOf(g).h:null});if(host&&show||g.ph==='end')v.answer=pzOf(g).a}
  return o}
 function send(c,r){try{c.res.write('data:'+JSON.stringify(view(r,c.role,c.pid))+'\n\n')}catch(e){}}
@@ -97,12 +106,9 @@ function hostAct(r,b,a,g){const L=r.ph;
   if(a==='fin'&&g.ph==='rev'&&g.show){const p=evalR1(r).map(x=>x.pass);if(g.i<3)p.forEach((x,t)=>{if(x)g.wins[t]++});g.out=p;g.ph='res';return}
   if(a==='next'&&g.ph==='res'){const p=g.out;let w=null;if(g.i===2&&g.wins[0]!==g.wins[1])w=g.wins[0]>g.wins[1]?0:1;if(g.i>2&&p[0]!==p[1])w=p[0]?0:1;if(w!==null)return void endRound(r,0,w,AR(g.wins[0])+' - '+AR(g.wins[1])+' تحديات'+(g.i>2?' (تحدٍّ فاصل)':''));Object.assign(g,{i:g.i+1,ph:'in',sub:{},ov:{},show:0,out:null});return}}
  if(g.kind===2){
-  if(a==='bid')return doBid(r,b.team,b.v);if(a==='wd')return doWd(r,b.team);
+  if(a==='inc')return doInc(r,b.team);if(a==='wd')return doWd(r,b.team);
   if(a==='go2'&&g.ph==='ans'&&!g.exp&&!g.T.run&&g.T.left===30000){tstart(r);return}
-  if(a==='add2')return doAdd2(r,b.text);
-  if(a==='pv'&&g.ans[b.i]&&g.ans[b.i].s==='p'){g.ans[b.i].s=b.ok?'ok':'x';chk2(r);return}
-  if(a==='fail'&&g.ph==='ans'){tpause(r);g.exp=1;return}
-  if(a==='fin'&&g.ph==='ans'){if(!g.exp)return'انتظروا انتهاء الوقت أو اضغط إنهاء المحاولة';const s=okN(g)>=g.bid,w=s?g.at:1-g.at;g.w[w]++;g.sx=s;g.ph='done';return}
+  if((a==='ok2'||a==='no2')){if(g.ph!=='ans')return'ليست مرحلة الإجابة';tpause(r);const s=a==='ok2',w=s?g.at:1-g.at;g.w[w]++;g.sx=s?1:0;g.exp=1;g.ph='done';return}
   if(a==='next'&&g.ph==='done'){if(g.i<2){Object.assign(g,{i:g.i+1,ph:'bid',bid:0,bt:null,ans:[],exp:0,at:null,sx:0,T:T0()});return}return void endRound(r,1,g.w[0]>g.w[1]?0:1,AR(g.w[0])+' - '+AR(g.w[1])+' مواجهات')}}
  if(g.kind===3){
   if(a==='show'&&g.ph==='ready'){g.ph='run';tstart(r);return}
@@ -120,8 +126,7 @@ function hostAct(r,b,a,g){const L=r.ph;
 function play(r,pl,b){const g=r.g,a=b.a;
  if(a==='ans')return doAns(r,pl.id,b.text);
  if(r.ph==='play'&&g&&g.kind===2){const m=mp(r);
-  if(a==='bid'||a==='wd'){if(m[pl.team]!==pl.id)return'لست لاعب هذه المواجهة';return a==='bid'?doBid(r,pl.team,b.v):doWd(r,pl.team)}
-  if(a==='add2'){if(g.at==null||m[g.at]!==pl.id)return'ليس دورك';return doAdd2(r,b.text)}}
+  if(a==='inc'||a==='wd'){if(m[pl.team]!==pl.id)return'لست لاعب هذه المواجهة';return a==='inc'?doInc(r,pl.team):doWd(r,pl.team)}}
  if(a==='buzz')return doBuzz(r,pl.team,pl.name,false);
  return'إجراء غير مسموح'}
 // ---- HTTP

@@ -53,46 +53,37 @@ hb('الجولة التالية');H.wait_for_timeout(200);log(ph());H.screenshot
 log('R2 sel',[[name_of(i) for i in sel(1)[t]] for t in ('0','1')])
 log('phone intro view',phones['سارة'].inner_text('.wrap').replace('\n',' | ')[:100])
 hb('ابدأ الجولة');H.wait_for_timeout(200)
-def bid(team,mp,v):
+def inc(team,mp):
     x=info()[mp[team]['name']]
-    if x['manual']:
-        H.fill(f'#bv{team}',str(v));H.click(f'button[data-a=bid][data-v="{team}"]')
-    else:
-        pg=phones[x['name']];pg.fill('#bv',str(v));pg.click('button[data-a=bid]')
+    if x['manual']:H.click(f'footer.dock button[data-a=inc][data-v="{team}"]')
+    else:phones[x['name']].click('button[data-a=inc]')
     H.wait_for_timeout(150)
 def wd(team,mp):
     x=info()[mp[team]['name']]
-    if x['manual']:H.click(f'button[data-a=wd][data-v="{team}"]')
+    if x['manual']:H.click(f'footer.dock button[data-a=wd][data-v="{team}"]')
     else:phones[x['name']].click('button[data-a=wd]')
     H.wait_for_timeout(150)
-def a2(team,mp,text):
-    x=info()[mp[team]['name']]
-    if x['manual']:H.fill('#ai',text);H.press('#ai','Enter')
-    else:
-        pg=phones[x['name']];pg.fill('#ai',text);pg.press('#ai','Enter')
-    H.wait_for_timeout(200)
-plan=[(0,['الهلال','النصر','الاتحاد'],True),(1,['كرسي'],False),(0,['تفاح','موز','برتقال'],True)]
-for i,(bt,words,good) in enumerate(plan):
+plan=[(0,2,True),(1,2,False),(0,3,True)]
+for i,(bt,n,good) in enumerate(plan):
     g=H.evaluate('st.g');mp=g['mp'];log('matchup',i,[m['name']+('✋' if m['manual'] else '📱') for m in mp])
-    # opposing team opens with 1, bidder raises to len(words), opponent withdraws
     ot=1-bt
-    bid(ot,mp,1);bid(bt,mp,max(len(words),2));
+    # alternate +1 presses until the bidder has reached n; the other team always just matched below
+    seq=[ot]+[bt if k%2==0 else ot for k in range(0)]
+    inc(ot,mp);inc(bt,mp)               # bids 1 then 2
+    if n==3:inc(ot,mp);inc(bt,mp)       # 3 then 4 (always higher than previous)
+    H.wait_for_timeout(200)
+    log(' bid now',H.evaluate('[st.g.bid,st.g.bt]'),'| screen shows same bid:',S.inner_text('.bidn').strip())
     if i==0:
-        # phone who is not in matchup must be refused: check via API
-        pass
-    H.screenshot(path=f'r2_bid{i}.png') if i==0 else None
-    H.wait_for_timeout(300);log('  states',H.evaluate('[st.g.bid,st.g.bt]'),[phones[m['name']].inner_text('.wrap').replace('\n',' | ')[-70:] for m in mp if not m['manual']]);wd(ot,mp);log(' ph',ph()['g']['ph'])
-    hb('ابدأ الوقت');H.wait_for_timeout(300)
-    if i==0:
-        S.screenshot(path='screen_r2.png')
+        H.screenshot(path='r2_bid0.png');S.screenshot(path='screen_r2.png')
         pg=[phones[m['name']] for m in mp if not m['manual']]
         if pg:pg[0].screenshot(path='phone_r2.png')
-    for w in words:a2(bt,mp,w)
-    if not good:
-        hb('إنهاء المحاولة')
-    log(' ans',H.evaluate('st.g.ans'),H.evaluate('st.g.T'));log(' after answers',ph()['g']['ph'],H.evaluate('st.g.sx'))
-    if has('اعتمد النتيجة'):hb('اعتمد النتيجة')
-    H.wait_for_timeout(200)
+    wd(ot,mp);log(' ph',ph()['g']['ph'])
+    hb('ابدأ الوقت');H.wait_for_timeout(300)
+    if i==0:
+        S.screenshot(path='screen_r2_ans.png');H.screenshot(path='host_r2_ans.png')
+        log(' result buttons only on presenter screen:',H.locator('button[data-a=ok2]').count()==1,S.locator('button[data-a=ok2]').count()==0)
+    H.click('button[data-a=ok2]' if good else 'button[data-a=no2]');H.wait_for_timeout(250)
+    log(' result',H.evaluate('[st.g.sx,st.g.w]'))
     if has('التالي'):hb('التالي')
     H.wait_for_timeout(200)
 log('R2 end',ph(),H.evaluate('[st.tot,st.res]'))

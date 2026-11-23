@@ -38,7 +38,7 @@ srv.listen(3171,async()=>{const B='http://127.0.0.1:3171',post=(u,b)=>fetch(B+u,
  t('R2: matchup player offline flagged for host control',hs.last.g.mp.every(m=>m.off===1||m.off===0)&&hs.last.g.mp.some(m=>m.off===1));
  // matchup1: team0 bids, team1 withdraws, answers fail -> team1 wins
  const g=()=>hs.last.g;
- await H('bid',{team:0,v:2});await H('wd',{team:1});await H('go2');await H('add2',{text:'غلط'});await H('fail');await H('fin');await H('next');
+ await H('inc',{team:0});await H('wd',{team:1});await H('go2');await H('no2');await H('next');
  t('R2 matchup 1 resolved, host acted for offline player',g().i===1&&g().w[1]===1);
  // skip rest of round 2 from the middle of play
  await H('skiprd');t('R2 skipped mid-round: no winner, no points',hs.last.ph==='rres'&&hs.last.res[1].w===null&&hs.last.tot[0]===0&&hs.last.tot[1]===0);

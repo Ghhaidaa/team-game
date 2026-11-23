@@ -36,14 +36,14 @@ function body(){const g=st.g,me=st.me;
 function r1(g){const me=st.me;let h=`<small>التحدي ${AR(g.i+1)}</small><div class=cd><div class=q>${E(g.q)}</div></div>`;
  if(!sel())return h+'<div class="cd wait">دورك للتشجيع في هذا التحدي 👏</div>';
  if(g.ph==='in'&&!g.mine)return h+`<div class=cd><input id=ai autocomplete=off placeholder="اكتب إجابتك" class=mask><small>إجابتك سرية حتى الكشف</small><button class="b p" data-a=ans>أرسل إجابتي</button></div>`;
- if(g.verdict)return h+`<div class="cd pop"><div class="q ${g.verdict.ok?'ok':'no'}">${g.verdict.ok?'إجابتك صحيحة ✓':g.verdict.dup?'إجابتك مكررة':'إجابتك غير مقبولة ✗'}</div><p>${E(g.mine||'')}</p></div>`;
+ if(g.verdict)return h+`<div class="cd pop"><div class="q ${g.verdict.ok?'ok':g.verdict.unk?'wait':'no'}">${g.verdict.ok?'إجابتك صحيحة ✓':g.verdict.dup?'إجابتك مكررة':g.verdict.unk?'إجابتك قيد مراجعة المقدم':'إجابتك غير مقبولة ✗'}</div><p>${E(g.mine||'')}</p></div>`;
  return h+`<div class="cd pop"><div class="q ok">تم استلام إجابتك ✓</div><p>«${E(g.mine||'')}»</p><p class=wait>بانتظار بقية اللاعبين…</p></div>`}
 function r2(g){const me=st.me,mine=g.mp[me.team]&&g.mp[me.team].id===me.id,opp=g.mp[1-me.team];
  let h=`<small>المواجهة ${AR(g.i+1)} من ٣</small><div class=cd><div class=q>${E(g.q)}</div></div>`;
- if(!mine)return h+`<div class="cd wait">${g.mp.every(Boolean)?`المواجهة: ${E(g.mp[0].name)} ضد ${E(g.mp[1].name)}`:''}<br>${g.ph==='bid'?'المزايدة الآن: '+(g.bid?AR(g.bid):'—'):''}</div>`;
- if(g.ph==='bid'){const lead=g.bt===me.team,can=g.bt!=null&&!lead;return h+`<div class=cd><div class=big>${g.bid?AR(g.bid):'—'}</div><p>${g.bt==null?'ابدأ المزايدة':lead?'مزايدتك هي الأعلى':'عليك أن تزايد أو تنسحب'}</p>${lead?'':`<input id=bv type=number inputmode=numeric min=1 max=30 placeholder="كم إجابة؟"><button class="b p" data-a=bid>زايد</button>`}${can?`<button class="b r" data-a=wd>انسحاب</button>`:''}</div>`}
- if(g.ph==='ans'){if(g.at!==me.team)return h+`<div class="cd wait">${E(opp?opp.name:'')} يجيب الآن…</div>`;return h+`<div class=cd>${g.T.run?`<div class=big id=tn></div>`:'<p>بانتظار بدء الوقت من المقدم…</p>'}<p>المطلوب ${AR(g.bid)} · صحيح ${AR(g.ans.filter(x=>x.s==='ok').length)}</p>${g.exp?'':`<input id=ai autocomplete=off placeholder="اكتب إجابة ثم Enter"><button class="b p" data-a=add2>أضف</button>`}${g.ans.map(x=>`<div class="ch ${x.s==='ok'?'ok':x.s==='p'?'dup':'no'}">${E(x.a)} ${x.s==='ok'?'✓':x.s==='d'?'مكررة':x.s==='x'?'✗':'…'}</div>`).join('')}</div>`}
- return h+`<div class="cd pop"><div class=q>${g.sx?'نجح التحدي ✓':'لم ينجح'}</div></div>`}
+ if(!mine)return h+`<div class="cd wait">${g.mp.every(Boolean)?`المواجهة: ${E(g.mp[0].name)} ضد ${E(g.mp[1].name)}`:''}<br>${g.ph==='bid'?'المزايدة الآن: '+(g.bid?AR(g.bid):'—'):g.ph==='ans'?'اللاعب يجيب شفهياً الآن':''}</div>`;
+ if(g.ph==='bid'){const lead=g.bt===me.team,can=g.bt!=null&&!lead;return h+`<div class=cd><div class=big>${g.bid?AR(g.bid):'—'}</div><p>${g.bt==null?'ابدأ المزايدة':lead?'مزايدتك هي الأعلى · بانتظار الخصم':'الخصم هو الأعلى: زايد أو انسحب'}</p><button class="b p" data-a=inc ${lead?'disabled':''}>+١ ${lead?'':'← '+AR(g.bid+1)}</button>${can?`<button class="b r" data-a=wd>انسحاب</button>`:''}</div>`}
+ if(g.ph==='ans'){if(g.at!==me.team)return h+`<div class="cd wait">${E(opp?opp.name:'')} يجيب الآن…</div>`;return h+`<div class=cd><div class="q ok">دورك! أجب شفهياً</div>${g.T.run?`<div class=big id=tn></div>`:'<p>بانتظار بدء الوقت من المقدم…</p>'}<p>المطلوب ${AR(g.bid)} إجابة صحيحة غير مكررة</p></div>`}
+ return h+`<div class="cd pop"><div class=q>${g.sx?'نجحت في التحدي ✓':'لم تنجح في التحدي'}</div></div>`}
 function r3(g){const me=st.me,used=g.tried[me.team];
  if(g.ph==='ready')return`<div class="cd pop"><div class=q>استعدوا!</div><p>اللغز التالي على الشاشة</p></div>`;
  let h=`<div class=cd><small>اللغز · الألغاز ${AR(g.sc[0])} - ${AR(g.sc[1])}</small>${g.T.run?'<div class=big id=tn></div>':''}</div>`;
@@ -55,8 +55,8 @@ setInterval(()=>{const e=$('#tn');if(!e||!st||!st.g)return;const T=st.g.T,ms=T.r
 const v=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
  if(a==='team'){team=+b.dataset.v;join()}else if(a==='join'){if(team==null)return toast('اختر فريقك');doJoin({name:v('nm'),team})}else if(a==='claim')doJoin({claim:b.dataset.v});
- else if(a==='ans')PL('ans',{text:v('ai')});else if(a==='bid')PL('bid',{v:v('bv')});else if(a==='wd')PL('wd',{});
- else if(a==='add2')PL('add2',{text:v('ai')}).then(r=>{if(r.ok){const i=$('#ai');if(i){i.value='';i.focus()}}});else if(a==='buzz')PL('buzz',{})});
-addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ai'){if(st&&st.g&&st.g.kind===2)PL('add2',{text:v('ai')}).then(r=>{if(r.ok){const i=$('#ai');if(i)i.value=''}});else PL('ans',{text:v('ai')})}if(e.key==='Enter'&&e.target.id==='bv')PL('bid',{v:v('bv')})});
+ else if(a==='ans')PL('ans',{text:v('ai')});else if(a==='inc')PL('inc',{});else if(a==='wd')PL('wd',{});
+ else if(a==='buzz')PL('buzz',{})});
+addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ai')PL('ans',{text:v('ai')})});
 init();
 </script></body></html>
