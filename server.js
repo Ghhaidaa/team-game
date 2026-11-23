@@ -35,7 +35,7 @@ const okN=g=>g.ans.filter(x=>x.s==='ok').length;
 const pzOf=g=>PZ[g.p];
 function evalR1(r){const g=r.g,q=q1(g);return[0,1].map(t=>{const keys=[];const it=r.sel[0][t].map(pid=>{const text=g.sub[pid]||'',n=N(text),gi=q.g.findIndex(x=>x.includes(n));let ok=!!text&&gi>=0;if(g.ov[pid]!==undefined)ok=g.ov[pid];const key=gi>=0?'g'+gi:'t'+n,dup=!!text&&keys.includes(key);if(text)keys.push(key);
  return{pid,name:(r.players.get(pid)||{}).name||'؟',text,ok,dup}});return{it,pass:it.length===3&&it.every(x=>x.text&&x.ok&&!x.dup)}})}
-function endRound(r,ri,w,txt){if(r.res[ri])return;r.res[ri]={w,txt};r.tot[w]+=r.pts[ri];r.ph='rres';clearTimeout(r.tm)}
+function endRound(r,ri,w,txt){if(r.res[ri])return;r.res[ri]=w===null?{w:null,txt,none:1}:{w,txt};if(w!==null)r.tot[w]+=r.pts[ri];r.ph='rres';clearTimeout(r.tm)}
 function fill(r){for(const ri of[0,1])for(const t of[0,1]){const s=r.sel[ri][t].filter(id=>r.players.has(id));for(const p of team(r,t)){if(s.length>=3)break;if(!s.includes(p.id))s.push(p.id)}r.sel[ri][t]=s}}
 function newG(r){const ri=r.ri;if(ri===0)r.g={kind:1,i:0,wins:[0,0],ph:'in',sub:{},ov:{},show:0,out:null,T:T0()};
  else if(ri===1)r.g={kind:2,i:0,ph:'bid',bid:0,bt:null,w:[0,0],ans:[],exp:0,at:null,sx:0,T:T0()};
@@ -53,23 +53,23 @@ function doAdd2(r,text){const g=r.g;if(r.ph!=='play'||!g||g.kind!==2||g.ph!=='an
 function doBuzz(r,t,by,manual){const g=r.g;if(r.ph!=='play'||!g||g.kind!==3||g.ph!=='run'||!g.T.run)return'ليس وقت الجرس';if(g.tried[t])return'فريقكم استخدم فرصته';tpause(r);g.ph='buzz';g.bz=t;g.by=by;g.bm=manual?1:0;g.tried[t]=1}
 // ---- views (role-filtered)
 function view(r,role,pid){const g=r.g,host=role==='host',scr=role==='screen',me=r.players.get(pid);
- const o={c:r.code,names:r.names,ph:r.ph,ri:r.ri,pts:r.pts,tot:r.tot,res:r.res,fw:r.fw,now:now(),min:MIN,sel:r.sel,
+ const o={c:r.code,names:r.names,ph:r.ph,ri:r.ri,pts:r.pts,tot:r.tot,res:r.res,fw:r.fw,draw:r.draw||0,now:now(),min:MIN,sel:r.sel,
   players:[...r.players.values()].map(p=>({id:p.id,name:p.name,team:p.team,on:p.on,manual:!p.tok?1:0}))};
  if(role==='player')o.me=me?{id:me.id,name:me.name,team:me.team}:null;
  if(r.ph!=='play'||!g)return o;const v={kind:g.kind,i:g.i,ph:g.ph,T:g.T};o.g=v;
  if(g.kind===1){const q=q1(g);Object.assign(v,{q:q.q,lv:q.lv,wins:g.wins,show:g.show,subs:Object.keys(g.sub)});
   if(role==='player'){v.mine=g.sub[pid]||null;if(g.ph==='res'){const e=evalR1(r);for(const t of[0,1])for(const x of e[t].it)if(x.pid===pid)v.verdict={ok:x.ok&&!x.dup,dup:x.dup}}}
   if(host&&(g.ph==='rev'||g.ph==='res')||scr&&(g.show||g.ph==='res')&&(g.ph==='rev'||g.ph==='res')){v.eval=evalR1(r);if(!host)v.eval.forEach(t=>t.it.forEach(x=>{delete x.pid}))}}
- if(g.kind===2){Object.assign(v,{q:R2[g.i].q,lv:R2[g.i].lv,bid:g.bid,bt:g.bt,w:g.w,at:g.at,exp:g.exp,sx:g.sx,ans:g.ans.map(x=>({a:x.a,s:x.s})),mp:mp(r).map(id=>{const p=r.players.get(id);return p?{id:p.id,name:p.name,manual:!p.tok?1:0}:null})})}
+ if(g.kind===2){Object.assign(v,{q:R2[g.i].q,lv:R2[g.i].lv,bid:g.bid,bt:g.bt,w:g.w,at:g.at,exp:g.exp,sx:g.sx,ans:g.ans.map(x=>({a:x.a,s:x.s})),mp:mp(r).map(id=>{const p=r.players.get(id);return p?{id:p.id,name:p.name,manual:!p.tok?1:0,off:(!p.tok||!p.on)?1:0}:null})})}
  if(g.kind===3){const show=['run','buzz','end'].includes(g.ph);Object.assign(v,{p:g.p,mode:g.mode,sc:g.sc,tried:g.tried,bz:g.bz,by:g.by,bm:g.bm,who:g.who,puz:show?pzOf(g).h:null});if(host&&show||g.ph==='end')v.answer=pzOf(g).a}
  return o}
 function send(c,r){try{c.res.write('data:'+JSON.stringify(view(r,c.role,c.pid))+'\n\n')}catch(e){}}
 function push(r){r.t0=now();for(const c of r.clients)send(c,r)}
 // ---- host actions
-function snap(r){return JSON.stringify({ph:r.ph,ri:r.ri,tot:r.tot,res:r.res,fw:r.fw,sel:r.sel,g:r.g})}
+function snap(r){return JSON.stringify({ph:r.ph,ri:r.ri,tot:r.tot,res:r.res,fw:r.fw,draw:r.draw,sel:r.sel,g:r.g})}
 function host(r,b){const a=b.a,g=r.g;
- if(a==='undo'){const s=r.hist.pop();if(!s)return'لا يوجد ما يمكن التراجع عنه';clearTimeout(r.tm);const o=JSON.parse(s);Object.assign(r,{ph:o.ph,ri:o.ri,tot:o.tot,res:o.res,fw:o.fw,sel:o.sel,g:o.g});if(r.g&&r.g.T&&r.g.T.run){r.g.T.left=Math.max(0,r.g.T.dl-now());r.g.T.run=0}return}
- if(a==='reset'){r.hist.push(snap(r));clearTimeout(r.tm);Object.assign(r,{ph:'lobby',ri:0,tot:[0,0],res:[null,null,null],fw:null,g:null,sel:[{0:[],1:[]},{0:[],1:[]}]});return}
+ if(a==='undo'){const s=r.hist.pop();if(!s)return'لا يوجد ما يمكن التراجع عنه';clearTimeout(r.tm);const o=JSON.parse(s);Object.assign(r,{ph:o.ph,ri:o.ri,tot:o.tot,res:o.res,fw:o.fw,draw:o.draw||0,sel:o.sel,g:o.g});if(r.g&&r.g.T&&r.g.T.run){r.g.T.left=Math.max(0,r.g.T.dl-now());r.g.T.run=0}return}
+ if(a==='reset'){r.hist.push(snap(r));clearTimeout(r.tm);Object.assign(r,{ph:'lobby',ri:0,tot:[0,0],res:[null,null,null],fw:null,draw:0,g:null,sel:[{0:[],1:[]},{0:[],1:[]}]});return}
  const before=snap(r);let e=hostAct(r,b,a,g);if(!e){r.hist.push(before);if(r.hist.length>40)r.hist.shift()}return e}
 function hostAct(r,b,a,g){const L=r.ph;
  if(L==='lobby'){
@@ -82,9 +82,12 @@ function hostAct(r,b,a,g){const L=r.ph;
  if(L==='intro'){
   if(a==='pick'){const s=r.sel[r.ri][b.team];if(!s)return;const i=s.indexOf(b.pid);if(i>=0)s.splice(i,1);else if(s.length<3)s.push(b.pid);else return'اخترتم ٣ لاعبين بالفعل';return}
   if(a==='go'){if(r.ri<2&&(r.sel[r.ri][0].length!==3||r.sel[r.ri][1].length!==3))return'اختر ٣ لاعبين من كل فريق';newG(r);r.ph='play';return}
-  if(a==='lobby'&&r.ri===0&&!r.res[0]){r.ph='lobby';return}}
+  if(a==='lobby'&&r.ri===0&&!r.res[0]){r.ph='lobby';return}
+  if(a==='skiprd'){endRound(r,r.ri,null,'تم تجاوز الجولة بلا فائز');return}}
  if(L==='rres'&&a==='nx'){if(r.ri<2){r.ri++;r.ph='intro';fill(r)}else if(r.tot[0]===r.tot[1]){r.ph='play';r.g={kind:3,i:7,p:7,sc:[0,0],ph:'ready',tried:[0,0],bz:null,by:null,bm:0,mode:'final',who:null,T:T0()}}else r.ph='final';return}
  if(L!=='play'||!g)return'هذا الإجراء غير متاح الآن';
+ if(a==='skiprd'&&g.mode!=='final'){tpause(r);endRound(r,r.ri,null,'انتهت الجولة بلا فائز');return}
+ if(a==='draw'&&g.mode==='final'){tpause(r);r.fw=null;r.draw=1;r.ph='final';return}
  if(a==='pause'&&g.T.run){tpause(r);return}if(a==='resume'){tresume(r);return}
  if(g.kind===1){
   if(a==='ans')return doAns(r,b.pid,b.text);
@@ -92,7 +95,7 @@ function hostAct(r,b,a,g){const L=r.ph;
   if(a==='show'&&g.ph==='rev'){g.show=1;return}
   if(a==='ov'&&(g.ph==='rev')){const e=evalR1(r);for(const t of[0,1])for(const x of e[t].it)if(x.pid===b.pid)g.ov[b.pid]=!x.ok;return}
   if(a==='fin'&&g.ph==='rev'&&g.show){const p=evalR1(r).map(x=>x.pass);if(g.i<3)p.forEach((x,t)=>{if(x)g.wins[t]++});g.out=p;g.ph='res';return}
-  if(a==='next'&&g.ph==='res'){const p=g.out;let w=null;if(g.i===2&&g.wins[0]!==g.wins[1])w=g.wins[0]>g.wins[1]?0:1;if(g.i>2&&p[0]!==p[1])w=p[0]?0:1;if(w!==null)return void endRound(r,0,w,AR(g.wins[0])+' - '+AR(g.wins[1])+(g.i>2?' (تحدٍّ فاصل)':''));Object.assign(g,{i:g.i+1,ph:'in',sub:{},ov:{},show:0,out:null});return}}
+  if(a==='next'&&g.ph==='res'){const p=g.out;let w=null;if(g.i===2&&g.wins[0]!==g.wins[1])w=g.wins[0]>g.wins[1]?0:1;if(g.i>2&&p[0]!==p[1])w=p[0]?0:1;if(w!==null)return void endRound(r,0,w,AR(g.wins[0])+' - '+AR(g.wins[1])+' تحديات'+(g.i>2?' (تحدٍّ فاصل)':''));Object.assign(g,{i:g.i+1,ph:'in',sub:{},ov:{},show:0,out:null});return}}
  if(g.kind===2){
   if(a==='bid')return doBid(r,b.team,b.v);if(a==='wd')return doWd(r,b.team);
   if(a==='go2'&&g.ph==='ans'&&!g.exp&&!g.T.run&&g.T.left===30000){tstart(r);return}

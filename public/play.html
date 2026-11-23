@@ -29,8 +29,8 @@ function head(){const t=st.me.team;return`<div class="hd c${t}"><span>${E(st.me.
 function body(){const g=st.g,me=st.me;
  if(st.ph==='lobby')return`<div class=cd><div class=q>أنت داخل!</div><p>${AR(st.players.length)} لاعب في الجلسة. بانتظار أن يبدأ المقدم المنافسة.</p></div>`;
  if(st.ph==='intro'){const i=st.ri;return`<div class=cd><h2>الجولة ${AR(i+1)}</h2><div class=q>${RN[i]}</div>${i<2?`<p>${sel()?'<b class=ok>تم اختيارك للعب في هذه الجولة ✓</b>':'لم يتم اختيارك في هذه الجولة؛ شجّع فريقك.'}</p>`:'<p>جهّز إصبعك على الجرس!</p>'}</div>`}
- if(st.ph==='rres'){const x=st.res[st.ri];return`<div class=cd><h2>نتيجة الجولة</h2><div class=q>${x.w===me.team?'فاز فريقكم 🎉':'فاز '+E(st.names[x.w])}</div></div>`}
- if(st.ph==='final'){const w=st.fw!=null?st.fw:st.tot[0]>st.tot[1]?0:1;return`<div class=cd><div class=big>🏆</div><div class=q>${w===me.team?'فريقكم فاز!':'فاز '+E(st.names[w])}</div><p>${AR(st.tot[0])} - ${AR(st.tot[1])}</p></div>`}
+ if(st.ph==='rres'){const x=st.res[st.ri];return`<div class=cd><h2>نتيجة الجولة</h2><div class=q>${x.w===null?'انتهت الجولة بلا فائز':x.w===me.team?'فاز فريقكم 🎉':'فاز '+E(st.names[x.w])}</div></div>`}
+ if(st.ph==='final'){const w=st.fw!=null?st.fw:st.tot[0]>st.tot[1]?0:st.tot[1]>st.tot[0]?1:null;return`<div class=cd><div class=big>${w===null?'🤝':'🏆'}</div><div class=q>${w===null?'تعادل':w===me.team?'فريقكم فاز!':'فاز '+E(st.names[w])}</div><p>${AR(st.tot[0])} - ${AR(st.tot[1])}</p></div>`}
  if(!g)return'';
  if(g.kind===1)return r1(g);if(g.kind===2)return r2(g);return r3(g)}
 function r1(g){const me=st.me;let h=`<small>التحدي ${AR(g.i+1)}</small><div class=cd><div class=q>${E(g.q)}</div></div>`;
