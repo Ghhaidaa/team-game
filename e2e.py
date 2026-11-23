@@ -5,7 +5,9 @@ B='http://localhost:3100'
 def log(*a):print(*a,flush=True)
 with sync_playwright() as p:
     br=p.chromium.launch()
-    hc=br.new_context(viewport={'width':1280,'height':800});H=hc.new_page()
+    import os
+    VW,VH=int(os.environ.get('VW',1366)),int(os.environ.get('VH',768))
+    hc=br.new_context(viewport={'width':VW,'height':VH});H=hc.new_page()
     errs=[]
     H.on('pageerror',lambda e:errs.append(('host',str(e))))
     H.goto(B);H.click('text=ابدأ اللعبة >> nth=0')

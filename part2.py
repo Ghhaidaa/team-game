@@ -1,7 +1,11 @@
+OV=[]
+def chk(tag):
+    r=H.evaluate('''()=>{const s=document.querySelector('.stage'),l=document.querySelector('.lobby'),d=document.documentElement;return {page:d.scrollHeight>innerHeight+2||d.scrollWidth>innerWidth+2,stage:s?s.scrollHeight>s.clientHeight+2:false,lobby:l?l.scrollHeight>l.clientHeight+2:false}}''')
+    if any(r.values()):OV.append((tag,r))
 def ph():return H.evaluate('({ph:st.ph,ri:st.ri,g:st.g&&{k:st.g.kind,ph:st.g.ph,i:st.g.i,mode:st.g.mode}})')
 def hb(txt):
-    H.locator(f'footer.host button:has-text("{txt}")').first.click();H.wait_for_timeout(150)
-def has(txt):return H.locator(f'footer.host button:has-text("{txt}")').count()>0
+    H.locator(f'footer.dock button:has-text("{txt}")').first.click();H.wait_for_timeout(150);chk(txt+' '+str(ph()))
+def has(txt):return H.locator(f'footer.dock button:has-text("{txt}")').count()>0
 def info():return {x['name']:x for x in H.evaluate('st.players')}
 def answer(pid_name,text):
     x=info()[pid_name]
@@ -104,7 +108,7 @@ for i,s in enumerate(steps):
     hb('اعرض اللغز');H.wait_for_timeout(300)
     if i==0:
         H.screenshot(path='r3_host.png');S.screenshot(path='screen_r3.png');phones['سارة'].screenshot(path='phone_r3.png')
-        log('screen shows puzzle:',S.locator('.rb').count()>0,' host answer visible:',H.locator('text=الإجابة').count()>0,' phone sees puzzle:',phones['سارة'].locator('.rb').count()>0,' phone sees answer:', 'ربع' in phones['سارة'].inner_text('body'))
+        log('screen shows puzzle:',S.locator('.rb').count()>0,' host answer visible on shared screen (should be False):',H.locator('.stage >> text=ربع').count()>0,' phone sees puzzle:',phones['سارة'].locator('.rb').count()>0,' phone sees answer:', 'ربع' in phones['سارة'].inner_text('body'))
     k=0
     if s[0]=='skip':hb('إنهاء اللغز');log(' skipped',ph()['g']['ph'])
     else:
@@ -124,3 +128,11 @@ log('R3 end',ph(),H.evaluate('[st.tot,st.res]'))
 H.screenshot(path='final_host.png');S.screenshot(path='final_screen.png');phones['منى'].screenshot(path='final_phone.png')
 if has('النتيجة النهائية'):hb('النتيجة النهائية');H.wait_for_timeout(300)
 log('final',ph());H.screenshot(path='final_host.png');S.screenshot(path='final_screen.png');phones['منى'].screenshot(path='final_phone.png')
+
+log('OVERFLOW',VW,VH,OV)
+for n,pg in [('host',H),('screen',S)]:pg.screenshot(path=f'z_{n}_{VW}.png')
+# fullscreen test
+H.keyboard.press('Escape')
+H.click('footer.dock button:has-text("⋯")');H.wait_for_timeout(150)
+H.click('.menu button:has-text("ملء الشاشة")');H.wait_for_timeout(500)
+log('fullscreen active:',H.evaluate('!!document.fullscreenElement'));H.screenshot(path=f'z_full_{VW}.png')
