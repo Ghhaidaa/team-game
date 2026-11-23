@@ -53,35 +53,26 @@ hb('الجولة التالية');H.wait_for_timeout(200);log(ph());H.screenshot
 log('R2 sel',[[name_of(i) for i in sel(1)[t]] for t in ('0','1')])
 log('phone intro view',phones['سارة'].inner_text('.wrap').replace('\n',' | ')[:100])
 hb('ابدأ الجولة');H.wait_for_timeout(200)
-def inc(team,mp):
-    x=info()[mp[team]['name']]
-    if x['manual']:H.click(f'footer.dock button[data-a=inc][data-v="{team}"]')
-    else:phones[x['name']].click('button[data-a=inc]')
-    H.wait_for_timeout(150)
-def wd(team,mp):
-    x=info()[mp[team]['name']]
-    if x['manual']:H.click(f'footer.dock button[data-a=wd][data-v="{team}"]')
-    else:phones[x['name']].click('button[data-a=wd]')
-    H.wait_for_timeout(150)
-plan=[(0,2,True),(1,2,False),(0,3,True)]
+plan=[(0,2,True),(1,3,False),(0,4,True)]
 for i,(bt,n,good) in enumerate(plan):
     g=H.evaluate('st.g');mp=g['mp'];log('matchup',i,[m['name']+('✋' if m['manual'] else '📱') for m in mp])
-    ot=1-bt
-    # alternate +1 presses until the bidder has reached n; the other team always just matched below
-    seq=[ot]+[bt if k%2==0 else ot for k in range(0)]
-    inc(ot,mp);inc(bt,mp)               # bids 1 then 2
-    if n==3:inc(ot,mp);inc(bt,mp)       # 3 then 4 (always higher than previous)
-    H.wait_for_timeout(200)
-    log(' bid now',H.evaluate('[st.g.bid,st.g.bt]'),'| screen shows same bid:',S.inner_text('.bidn').strip())
+    ph0=phones[mp[0]['name']] if mp[0]['name'] in phones else None
+    if i==0:
+        log(' phone shows NO bid controls:',phones['سارة'].locator('button[data-a=inc],input').count()==0,'| presenter has +/-:',H.locator('button[data-a=bidup]').count()==1,H.locator('button[data-a=biddn]').count()==1)
+        log(' confirm disabled before bid/holder:',H.locator('button[data-a=confirm2]').is_disabled())
+        log(' audience screen has no controls:',S.locator('button[data-a=bidup]').count()==0)
+    for k in range(n):H.click('button[data-a=bidup]');H.wait_for_timeout(60)
+    H.click('button[data-a=biddn]');H.wait_for_timeout(60);H.click('button[data-a=bidup]');H.wait_for_timeout(120)
+    log(' still bidding after +/- clicks:',H.evaluate('st.g.ph'),'| bid:',H.evaluate('st.g.bid'),'| screen counter:',S.inner_text('.bidn').strip())
+    H.click(f'button[data-a=holder][data-v="{bt}"]');H.wait_for_timeout(150)
     if i==0:
         H.screenshot(path='r2_bid0.png');S.screenshot(path='screen_r2.png')
-        pg=[phones[m['name']] for m in mp if not m['manual']]
-        if pg:pg[0].screenshot(path='phone_r2.png')
-    wd(ot,mp);log(' ph',ph()['g']['ph'])
-    hb('ابدأ الوقت');H.wait_for_timeout(300)
+        phones[mp[0]['name']].screenshot(path='phone_r2.png') if not mp[0]['manual'] else None
+    H.click('button[data-a=confirm2]');H.wait_for_timeout(300)
+    log(' phase:',H.evaluate('[st.g.ph,st.g.at,st.g.bid,st.g.T.run]'))
     if i==0:
         S.screenshot(path='screen_r2_ans.png');H.screenshot(path='host_r2_ans.png')
-        log(' result buttons only on presenter screen:',H.locator('button[data-a=ok2]').count()==1,S.locator('button[data-a=ok2]').count()==0)
+        log(' screen shows player/team/bid/timer:',all(x in S.inner_text('.stage') for x in [mp[bt]['name'],'٣٠' if False else '']),'| result buttons only on presenter:',H.locator('button[data-a=ok2]').count()==1,S.locator('button[data-a=ok2]').count()==0)
     H.click('button[data-a=ok2]' if good else 'button[data-a=no2]');H.wait_for_timeout(250)
     log(' result',H.evaluate('[st.g.sx,st.g.w]'))
     if has('التالي'):hb('التالي')

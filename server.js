@@ -57,8 +57,6 @@ function resetPz(r,p){const g=r.g;Object.assign(g,{p,ph:'ready',tried:[0,0],bz:n
 function doAns(r,pid,text){const g=r.g;if(r.ph!=='play'||!g||g.kind!==1||g.ph!=='in')return'ليس وقت الإجابة';if(![...r.sel[0][0],...r.sel[0][1]].includes(pid))return'لست من المشاركين في هذه الجولة';
  text=String(text||'').trim().slice(0,40);if(!text)return'اكتب إجابة';if(g.sub[pid])return'تم إرسال إجابتك مسبقاً';g.sub[pid]=text;
  if([...r.sel[0][0],...r.sel[0][1]].every(id=>g.sub[id]))g.ph='rev'}
-function doInc(r,t){const g=r.g;if(r.ph!=='play'||!g||g.kind!==2||g.ph!=='bid')return'ليست مرحلة المزايدة';if(g.bt===t)return'انتظر مزايدة الخصم أو انتظر انسحابه';if(g.bid>=30)return'وصلت المزايدة للحد الأقصى (٣٠)';g.bid++;g.bt=t}
-function doWd(r,t){const g=r.g;if(r.ph!=='play'||!g||g.kind!==2||g.ph!=='bid')return'ليست مرحلة المزايدة';if(g.bt==null)return'لم تبدأ المزايدة بعد';if(g.bt===t)return'أنت صاحب أعلى مزايدة';g.at=g.bt;g.ph='ans'}
 function doBuzz(r,t,by,manual){const g=r.g;if(r.ph!=='play'||!g||g.kind!==3||g.ph!=='run'||!g.T.run)return'ليس وقت الجرس';if(g.tried[t])return'فريقكم استخدم فرصته';tpause(r);g.ph='buzz';g.bz=t;g.by=by;g.bm=manual?1:0;g.tried[t]=1}
 // ---- views (role-filtered)
 function view(r,role,pid){const g=r.g,host=role==='host',scr=role==='screen',me=r.players.get(pid);
@@ -79,7 +77,7 @@ function snap(r){return JSON.stringify({ph:r.ph,ri:r.ri,tot:r.tot,res:r.res,fw:r
 function host(r,b){const a=b.a,g=r.g;
  if(a==='undo'){const s=r.hist.pop();if(!s)return'لا يوجد ما يمكن التراجع عنه';clearTimeout(r.tm);const o=JSON.parse(s);Object.assign(r,{ph:o.ph,ri:o.ri,tot:o.tot,res:o.res,fw:o.fw,draw:o.draw||0,sel:o.sel,g:o.g});if(r.g&&r.g.T&&r.g.T.run){r.g.T.left=Math.max(0,r.g.T.dl-now());r.g.T.run=0}return}
  if(a==='reset'){r.hist.push(snap(r));clearTimeout(r.tm);Object.assign(r,{ph:'lobby',ri:0,tot:[0,0],res:[null,null,null],fw:null,draw:0,g:null,sel:[{0:[],1:[]},{0:[],1:[]}]});return}
- const before=snap(r);let e=hostAct(r,b,a,g);if(!e){r.hist.push(before);if(r.hist.length>40)r.hist.shift()}return e}
+ const before=snap(r);let e=hostAct(r,b,a,g);if(!e&&!['bidup','biddn','holder'].includes(a)){r.hist.push(before);if(r.hist.length>40)r.hist.shift()}return e}
 function hostAct(r,b,a,g){const L=r.ph;
  if(L==='lobby'){
   if(a==='names'){r.names=[0,1].map(t=>String(b['n'+t]||'').trim().slice(0,20)||r.names[t]);return}
@@ -106,7 +104,9 @@ function hostAct(r,b,a,g){const L=r.ph;
   if(a==='fin'&&g.ph==='rev'&&g.show){const p=evalR1(r).map(x=>x.pass);if(g.i<3)p.forEach((x,t)=>{if(x)g.wins[t]++});g.out=p;g.ph='res';return}
   if(a==='next'&&g.ph==='res'){const p=g.out;let w=null;if(g.i===2&&g.wins[0]!==g.wins[1])w=g.wins[0]>g.wins[1]?0:1;if(g.i>2&&p[0]!==p[1])w=p[0]?0:1;if(w!==null)return void endRound(r,0,w,AR(g.wins[0])+' - '+AR(g.wins[1])+' تحديات'+(g.i>2?' (تحدٍّ فاصل)':''));Object.assign(g,{i:g.i+1,ph:'in',sub:{},ov:{},show:0,out:null});return}}
  if(g.kind===2){
-  if(a==='inc')return doInc(r,b.team);if(a==='wd')return doWd(r,b.team);
+  if(a==='bidup'||a==='biddn'){if(g.ph!=='bid')return'ليست مرحلة المزايدة';const v=g.bid+(a==='bidup'?1:-1);if(v<0)return'لا يمكن النزول عن صفر';if(v>30)return'الحد الأقصى ٣٠';g.bid=v;return}
+  if(a==='holder'){if(g.ph!=='bid')return'ليست مرحلة المزايدة';if(b.team!==0&&b.team!==1)return'اختر الفريق';g.bt=g.bt===b.team?null:b.team;return}
+  if(a==='confirm2'){if(g.ph!=='bid')return'ليست مرحلة المزايدة';if(g.bt==null)return'اختر صاحب أعلى مزايدة أولاً';if(g.bid<1)return'ارفع المزايدة إلى ١ على الأقل';if(!r.sel[1][g.bt][g.i])return'لا يوجد لاعب في هذه المواجهة';g.at=g.bt;g.ph='ans';tstart(r);return}
   if(a==='go2'&&g.ph==='ans'&&!g.exp&&!g.T.run&&g.T.left===30000){tstart(r);return}
   if((a==='ok2'||a==='no2')){if(g.ph!=='ans')return'ليست مرحلة الإجابة';tpause(r);const s=a==='ok2',w=s?g.at:1-g.at;g.w[w]++;g.sx=s?1:0;g.exp=1;g.ph='done';return}
   if(a==='next'&&g.ph==='done'){if(g.i<2){Object.assign(g,{i:g.i+1,ph:'bid',bid:0,bt:null,ans:[],exp:0,at:null,sx:0,T:T0()});return}return void endRound(r,1,g.w[0]>g.w[1]?0:1,AR(g.w[0])+' - '+AR(g.w[1])+' مواجهات')}}
@@ -125,8 +125,7 @@ function hostAct(r,b,a,g){const L=r.ph;
 // ---- phone actions
 function play(r,pl,b){const g=r.g,a=b.a;
  if(a==='ans')return doAns(r,pl.id,b.text);
- if(r.ph==='play'&&g&&g.kind===2){const m=mp(r);
-  if(a==='inc'||a==='wd'){if(m[pl.team]!==pl.id)return'لست لاعب هذه المواجهة';return a==='inc'?doInc(r,pl.team):doWd(r,pl.team)}}
+ if(r.ph==='play'&&g&&g.kind===2)return'المزايدة والإجابة يديرها المقدم من الشاشة';
  if(a==='buzz')return doBuzz(r,pl.team,pl.name,false);
  return'إجراء غير مسموح'}
 // ---- HTTP

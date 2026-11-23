@@ -36,22 +36,23 @@ srv.listen(3170,async()=>{const B='http://127.0.0.1:3170',post=(u,b)=>fetch(B+u,
  for(let ch=1;ch<3;ch++){for(let j=0;j<3;j++){await sub(t0[j],gs[ch-1][j]);await sub(t1[j],j?gs[ch-1][j]:'كلمة');}await w(60);await H('show');await H('fin');await H('next');await w(60)}
  t('R1 won by team0, round result',hs.last.ph==='rres'&&hs.last.res[0].w===0&&hs.last.tot[0]===10);
  const tot1=hs.last.tot.slice();await H('nx');t('no double score on repeat nx',hs.last.tot[0]===10&&tot1[0]===10);
- // R2 (button bidding, verbal answers, host confirms result)
+ // R2 (presenter-only bidding with + / -, verbal answers, presenter confirms)
  await H('go');await w(60);const g2=()=>hs.last.g,m=()=>g2().mp;
- const phoneOf=id=>byId(id);
- t('inc by non-matchup phone refused',!!(await P(ph.find(x=>x.team===0&&x.pid!==m()[0].id),'inc')).e);
- t('result buttons refused during bidding',!!(await H('ok2')).e&&g2().ph==='bid');
- const incAs=async t=>{const p=phoneOf(m()[t].id);return p?P(p,'inc'):H('inc',{team:t})};
- const wdAs=async t=>{const p=phoneOf(m()[t].id);return p?P(p,'wd'):H('wd',{team:t})};
- t('first +1 -> bid 1',(await incAs(0)).ok===1&&g2().bid===1&&g2().bt===0);t('same team twice refused',!!(await incAs(0)).e);
- t('other team +1 -> bid 2 (always higher)',(await incAs(1)).ok===1&&g2().bid===2&&g2().bt===1);
- t('high bidder cannot withdraw',!!(await wdAs(1)).e);t('other withdraws -> highest bidder (team1) answers',(await wdAs(0)).ok===1&&g2().ph==='ans'&&g2().at===1);
- t('no typed answers any more (add2 gone)',!!(await H('add2',{text:'الهلال'})).e);t('old typed bid gone',!!(await H('bid',{team:0,v:3})).e);
- await H('go2');await w(50);t('timer running',g2().T.run===1);
- t('presenter confirms success -> bidder team wins matchup',(await H('ok2')).ok===1&&g2().w[1]===1&&g2().ph==='done'&&g2().T.run===0);
+ t('phones cannot bid or withdraw any more',!!(await P(ph.find(x=>x.team===0),'inc')).e&&!!(await P(ph.find(x=>x.team===1),'wd')).e);
+ t('confirm refused with no bid / no holder',!!(await H('confirm2')).e);
+ t('minus below 0 refused',!!(await H('biddn')).e&&g2().bid===0);
+ for(let i=0;i<6;i++)await H('bidup');t('+ x6 -> 6',g2().bid===6);await H('biddn');await H('biddn');t('- x2 -> 4',g2().bid===4);
+ t('confirm refused without holder',!!(await H('confirm2')).e&&g2().ph==='bid');
+ await H('holder',{team:0});t('holder set to team0',g2().bt===0);await H('holder',{team:1});t('holder switched to team1',g2().bt===1);
+ for(let i=0;i<30;i++)await H('bidup');t('max 30',g2().bid===30);for(let i=0;i<26;i++)await H('biddn');t('back to 4',g2().bid===4);
+ t('bid changes do not start the challenge',g2().ph==='bid'&&g2().T.run===0);
+ t('confirm -> answer phase, bidder team answers, timer starts',(await H('confirm2')).ok===1&&g2().ph==='ans'&&g2().at===1&&g2().bid===4&&g2().T.run===1);
+ t('bid cannot be changed after confirmation',!!(await H('bidup')).e);
+ t('no typed answers (add2 gone)',!!(await H('add2',{text:'الهلال'})).e);
+ t('presenter success -> bidder team wins matchup',(await H('ok2')).ok===1&&g2().w[1]===1&&g2().ph==='done'&&g2().T.run===0);
  t('result cannot be applied twice',!!(await H('no2')).e&&g2().w[1]===1&&g2().w[0]===0);await H('next');
- await incAs(0);await wdAs(1);await H('go2');t('failure -> other team wins matchup',(await H('no2')).ok===1&&g2().w[1]===2&&g2().sx===0);await H('next');
- await incAs(1);await incAs(0);await incAs(1);await wdAs(0);t('3 bids then withdraw, bid=3 team1',g2().ph==='ans'&&g2().bid===3&&g2().at===1);await H('ok2');await H('next');await w(60);
+ await H('bidup');await H('bidup');await H('holder',{team:0});await H('confirm2');t('failure -> other team wins matchup',(await H('no2')).ok===1&&g2().w[1]===2&&g2().sx===0);await H('next');
+ await H('bidup');await H('holder',{team:1});await H('confirm2');await H('pause');t('timer can be paused',g2().T.run===0);await H('resume');await H('ok2');await H('next');await w(60);
  t('R2 result team1 20 pts',hs.last.ph==='rres'&&hs.last.res[1].w===1&&hs.last.tot[1]===20);
  // R3 + tie scenario, simultaneous buzz
  await H('nx');await H('go');await H('show');await w(60);
