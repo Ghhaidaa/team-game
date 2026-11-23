@@ -1,0 +1,62 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>مسابقة الفرق · لاعب</title>
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@500;700&family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/common.css"><style>
+body{padding-bottom:30px}.hd{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-weight:700}.hd small{color:inherit;opacity:.85}.wrap{max-width:520px;margin:auto;padding:12px 16px;text-align:center}
+.hero2{background:linear-gradient(165deg,#9E5AFF,#25144A);color:#fff;padding:30px 16px 50px;text-align:center;border-radius:0 0 40px 40px}.hero2 h1{font-size:2.2em}.hero2 span{color:var(--y)}
+.tp{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}.tp button{padding:16px;border-radius:16px;border:4px solid transparent;font:700 1.1em 'Readex Pro',sans-serif;cursor:pointer}.tp button.on{border-color:var(--y);box-shadow:0 0 0 3px var(--ink)}
+input{width:100%}.b{width:100%;margin:6px 0}.q{font-size:1.5em}.buzz{width:min(78vw,300px);height:min(78vw,300px);border-radius:50%;border:12px solid var(--y);font:700 2.4em 'Readex Pro',sans-serif;background:radial-gradient(circle at 35% 30%,#ff8aa0,#ff5470 60%,#c0334d);color:#fff;box-shadow:0 12px 0 #8c1f37;cursor:pointer;touch-action:manipulation;margin:16px auto;display:block}.buzz:active{transform:translateY(8px);box-shadow:0 4px 0 #8c1f37}.buzz:disabled{filter:grayscale(.9);opacity:.5}
+.big{font-size:5em;font-family:'Readex Pro',sans-serif;font-weight:700;line-height:1}.ok{color:#0a9e8c}.no{color:#ff5470}.wait{opacity:.8}
+</style></head><body><div id="app"></div><div id="toast" hidden></div>
+<script>
+const $=s=>document.querySelector(s),E=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),AR=n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]);
+const C=location.pathname.split('/')[2],SK='pl_'+C,RN=['سبوركل','تحدي الثلاثين','خمن العبارة'];
+let S=null,st=null,off=0,es,info=null,team=null,bad=0;
+try{S=JSON.parse(localStorage[SK])}catch(e){}
+const post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>({e:'تعذر الاتصال'}));
+function toast(m){const e=$('#toast');e.textContent=m;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,2400)}
+function paint(h){const a=document.activeElement,id=a&&a.id,v={};document.querySelectorAll('#app input').forEach(e=>v[e.id]=e.value);$('#app').innerHTML=h;for(const k in v){const e=document.getElementById(k);if(e)e.value=v[k]}if(id){const e=document.getElementById(id);if(e)e.focus()}}
+const PL=(a,x)=>post('/api/play',{c:C,pid:S.pid,tok:S.tok,a,...x}).then(r=>{if(r.e)toast(r.e);return r});
+async function init(){if(S){const r=await fetch('/api/info?c='+C).catch(()=>null);if(r&&r.status===404){localStorage.removeItem(SK);S=null}else return connect()}
+ const r=await fetch('/api/info?c='+C).catch(()=>null);if(!r||r.status!==200)return paint('<div class=wrap><div class=cd><h2>الجلسة غير موجودة</h2><p>تأكد من الرمز أو اطلب من المقدم رمزاً جديداً.</p></div></div>');info=await r.json();join()}
+function join(){const fr=info.free.length&&info.ph==='lobby'?`<div class=cd><b>أضافك المقدم مسبقاً؟ اضغط اسمك لتربط جوالك</b>${info.free.map(f=>`<button class="b p" data-a=claim data-v=${f.id}>${E(f.name)} · ${E(info.names[f.team])}</button>`).join('')}</div>`:'';
+ paint(`<div class=hero2><h1>مسابقة <span>الفرق</span></h1><p>جلسة ${E(C)}</p></div><div class=wrap>${info.ph!=='lobby'?'<div class=cd><h2>بدأت اللعبة</h2><p>الانضمام الجديد مغلق. تابعوا الشاشة.</p></div>':`${fr}<div class=cd><input id=nm maxlength=20 placeholder="اسمك" autocomplete=off><div class=tp>${[0,1].map(t=>`<button class="c${t} ${team===t?'on':''}" data-a=team data-v=${t}>${E(info.names[t])}<br><small>${AR(info.n[t])} لاعب</small></button>`).join('')}</div><button class="b big" style="font-size:1.3em" data-a=join>انضم</button></div>`}</div>`)}
+async function doJoin(body){const r=await post('/api/join',{c:C,...body});if(r.e)return toast(r.e);S=r;try{localStorage[SK]=JSON.stringify(S)}catch(e){}connect()}
+function connect(){if(es)es.close();es=new EventSource(`/api/events?c=${C}&role=player&pid=${S.pid}&tok=${S.tok}`);
+ es.onmessage=e=>{bad=0;document.body.classList.remove('off');st=JSON.parse(e.data);off=st.now-Date.now();if(!st.me){localStorage.removeItem(SK);S=null;es.close();return init()}render()};
+ es.onerror=async()=>{document.body.classList.add('off');if(++bad>2){const r=await fetch(`/api/events?c=${C}&role=player&pid=${S.pid}&tok=${S.tok}`).catch(()=>null);if(r&&(r.status===403||r.status===404)){es.close();localStorage.removeItem(SK);S=null;init()}else if(r)r.body&&r.body.cancel()}}}
+const sel=()=>{const s=st.sel[st.ri<2?st.ri:0];return s?(s[st.me.team]||[]).includes(st.me.id):false};
+function head(){const t=st.me.team;return`<div class="hd c${t}"><span>${E(st.me.name)}</span><small>${E(st.names[t])}</small></div>`}
+function body(){const g=st.g,me=st.me;
+ if(st.ph==='lobby')return`<div class=cd><div class=q>أنت داخل!</div><p>${AR(st.players.length)} لاعب في الجلسة. بانتظار أن يبدأ المقدم المنافسة.</p></div>`;
+ if(st.ph==='intro'){const i=st.ri;return`<div class=cd><h2>الجولة ${AR(i+1)}</h2><div class=q>${RN[i]}</div>${i<2?`<p>${sel()?'<b class=ok>تم اختيارك للعب في هذه الجولة ✓</b>':'لم يتم اختيارك في هذه الجولة؛ شجّع فريقك.'}</p>`:'<p>جهّز إصبعك على الجرس!</p>'}</div>`}
+ if(st.ph==='rres'){const x=st.res[st.ri];return`<div class=cd><h2>نتيجة الجولة</h2><div class=q>${x.w===me.team?'فاز فريقكم 🎉':'فاز '+E(st.names[x.w])}</div></div>`}
+ if(st.ph==='final'){const w=st.fw!=null?st.fw:st.tot[0]>st.tot[1]?0:1;return`<div class=cd><div class=big>🏆</div><div class=q>${w===me.team?'فريقكم فاز!':'فاز '+E(st.names[w])}</div><p>${AR(st.tot[0])} - ${AR(st.tot[1])}</p></div>`}
+ if(!g)return'';
+ if(g.kind===1)return r1(g);if(g.kind===2)return r2(g);return r3(g)}
+function r1(g){const me=st.me;let h=`<small>التحدي ${AR(g.i+1)}</small><div class=cd><div class=q>${E(g.q)}</div></div>`;
+ if(!sel())return h+'<div class="cd wait">دورك للتشجيع في هذا التحدي 👏</div>';
+ if(g.ph==='in'&&!g.mine)return h+`<div class=cd><input id=ai autocomplete=off placeholder="اكتب إجابتك" class=mask><small>إجابتك سرية حتى الكشف</small><button class="b p" data-a=ans>أرسل إجابتي</button></div>`;
+ if(g.verdict)return h+`<div class="cd pop"><div class="q ${g.verdict.ok?'ok':'no'}">${g.verdict.ok?'إجابتك صحيحة ✓':g.verdict.dup?'إجابتك مكررة':'إجابتك غير مقبولة ✗'}</div><p>${E(g.mine||'')}</p></div>`;
+ return h+`<div class="cd pop"><div class="q ok">تم استلام إجابتك ✓</div><p>«${E(g.mine||'')}»</p><p class=wait>بانتظار بقية اللاعبين…</p></div>`}
+function r2(g){const me=st.me,mine=g.mp[me.team]&&g.mp[me.team].id===me.id,opp=g.mp[1-me.team];
+ let h=`<small>المواجهة ${AR(g.i+1)} من ٣</small><div class=cd><div class=q>${E(g.q)}</div></div>`;
+ if(!mine)return h+`<div class="cd wait">${g.mp.every(Boolean)?`المواجهة: ${E(g.mp[0].name)} ضد ${E(g.mp[1].name)}`:''}<br>${g.ph==='bid'?'المزايدة الآن: '+(g.bid?AR(g.bid):'—'):''}</div>`;
+ if(g.ph==='bid'){const lead=g.bt===me.team,can=g.bt!=null&&!lead;return h+`<div class=cd><div class=big>${g.bid?AR(g.bid):'—'}</div><p>${g.bt==null?'ابدأ المزايدة':lead?'مزايدتك هي الأعلى':'عليك أن تزايد أو تنسحب'}</p>${lead?'':`<input id=bv type=number inputmode=numeric min=1 max=30 placeholder="كم إجابة؟"><button class="b p" data-a=bid>زايد</button>`}${can?`<button class="b r" data-a=wd>انسحاب</button>`:''}</div>`}
+ if(g.ph==='ans'){if(g.at!==me.team)return h+`<div class="cd wait">${E(opp?opp.name:'')} يجيب الآن…</div>`;return h+`<div class=cd>${g.T.run?`<div class=big id=tn></div>`:'<p>بانتظار بدء الوقت من المقدم…</p>'}<p>المطلوب ${AR(g.bid)} · صحيح ${AR(g.ans.filter(x=>x.s==='ok').length)}</p>${g.exp?'':`<input id=ai autocomplete=off placeholder="اكتب إجابة ثم Enter"><button class="b p" data-a=add2>أضف</button>`}${g.ans.map(x=>`<div class="ch ${x.s==='ok'?'ok':x.s==='p'?'dup':'no'}">${E(x.a)} ${x.s==='ok'?'✓':x.s==='d'?'مكررة':x.s==='x'?'✗':'…'}</div>`).join('')}</div>`}
+ return h+`<div class="cd pop"><div class=q>${g.sx?'نجح التحدي ✓':'لم ينجح'}</div></div>`}
+function r3(g){const me=st.me,used=g.tried[me.team];
+ if(g.ph==='ready')return`<div class="cd pop"><div class=q>استعدوا!</div><p>اللغز التالي على الشاشة</p></div>`;
+ let h=`<div class=cd><small>اللغز · الألغاز ${AR(g.sc[0])} - ${AR(g.sc[1])}</small>${g.T.run?'<div class=big id=tn></div>':''}</div>`;
+ if(g.ph==='run')return h+`<button class=buzz data-a=buzz ${used?'disabled':''}>${used?'استُخدمت':'🔔'}</button><p class=wait>${used?'فريقكم أخذ فرصته':'اضغط أول من يعرف!'}</p>`;
+ if(g.ph==='buzz')return h+`<div class="cd pop"><div class="q ${g.bz===me.team?'ok':'no'}">${g.bz===me.team?'🔔 فريقكم ضغط أولاً! أجيبوا صوتياً':'🔔 ضغط الفريق الآخر'}</div>${g.by?'<p>'+E(g.by)+'</p>':''}</div>`;
+ return h+`<div class="cd pop"><div class=q>${g.who===me.team?'نقطة لفريقكم 🎉':g.who==null?'انتهى اللغز':'النقطة للفريق الآخر'}</div></div>`}
+function render(){paint(head()+`<div class=wrap>${body()}</div>`)}
+setInterval(()=>{const e=$('#tn');if(!e||!st||!st.g)return;const T=st.g.T,ms=T.run?Math.max(0,T.dl-(Date.now()+off)):T.left;e.textContent=AR(Math.ceil(ms/1e3))},150);
+const v=id=>{const e=document.getElementById(id);return e?e.value.trim():''};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;
+ if(a==='team'){team=+b.dataset.v;join()}else if(a==='join'){if(team==null)return toast('اختر فريقك');doJoin({name:v('nm'),team})}else if(a==='claim')doJoin({claim:b.dataset.v});
+ else if(a==='ans')PL('ans',{text:v('ai')});else if(a==='bid')PL('bid',{v:v('bv')});else if(a==='wd')PL('wd',{});
+ else if(a==='add2')PL('add2',{text:v('ai')}).then(r=>{if(r.ok){const i=$('#ai');if(i){i.value='';i.focus()}}});else if(a==='buzz')PL('buzz',{})});
+addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ai'){if(st&&st.g&&st.g.kind===2)PL('add2',{text:v('ai')}).then(r=>{if(r.ok){const i=$('#ai');if(i)i.value=''}});else PL('ans',{text:v('ai')})}if(e.key==='Enter'&&e.target.id==='bv')PL('bid',{v:v('bv')})});
+init();
+</script></body></html>

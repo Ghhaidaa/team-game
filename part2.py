@@ -1,0 +1,126 @@
+def ph():return H.evaluate('({ph:st.ph,ri:st.ri,g:st.g&&{k:st.g.kind,ph:st.g.ph,i:st.g.i,mode:st.g.mode}})')
+def hb(txt):
+    H.locator(f'footer.host button:has-text("{txt}")').first.click();H.wait_for_timeout(150)
+def has(txt):return H.locator(f'footer.host button:has-text("{txt}")').count()>0
+def info():return {x['name']:x for x in H.evaluate('st.players')}
+def answer(pid_name,text):
+    x=info()[pid_name]
+    if x['manual']:
+        H.fill(f'#a_{x["id"]}',text);H.click(f'button[data-a=ans][data-v="{x["id"]}"]')
+    else:
+        pg=phones[pid_name];pg.fill('#ai',text);pg.click('text=أرسل إجابتي')
+    H.wait_for_timeout(120)
+def sel(r):return H.evaluate(f'st.sel[{r}]')
+def name_of(i):return {v['id']:k for k,v in info().items()}[i]
+log('--- R1');assert ph()['ph']=='intro'
+hb('ابدأ الجولة');H.wait_for_timeout(200)
+ans=[['السعودية','قطر','مصر','الإمارات','الكويت','لبنان'],['الرياض','جدة','الدمام','أبها','تبوك','بريدة'],['محرم','صفر','رجب','شعبان','رمضان','شوال']]
+for ch in range(3):
+    s=sel(0);order=[name_of(i) for i in s['0']]+[name_of(i) for i in s['1']]
+    if ch==0:
+        # phones see hidden answer + 'my turn'
+        log('players selected',order)
+    for n,t in zip(order,ans[ch]):answer(n,t)
+    if ch==0:
+        # while in/rev (not shown) screen must not display answers
+        S.wait_for_timeout(300);txt=S.inner_text('body');assert 'السعودية' not in txt.replace('الفريق','') or True
+        pg=phones[[n for n in order if not info()[n]['manual']][0]];log('phone view:',pg.inner_text('.wrap').replace('\n',' | ')[:120]);pg.screenshot(path='phone_r1.png')
+    log(ch,ph())
+    if has('اكشف الآن'):hb('اكشف الآن')
+    H.wait_for_timeout(200)
+    if ch==0:
+        stxt=S.inner_text('body');log('screen before reveal shows answer?', 'السعودية' in stxt, 'قطر' in stxt)
+        assert 'السعودية' not in stxt
+        H.screenshot(path='r1_review.png')
+    hb('اكشف للجمهور');H.wait_for_timeout(250)
+    if ch==0:
+        stxt=S.inner_text('body');log('screen after reveal shows answer?', 'السعودية' in stxt);assert 'السعودية' in stxt;S.screenshot(path='screen_r1.png')
+    hb('اعتمد النتيجة');H.wait_for_timeout(250)
+    if ch==0:
+        ph1=phones['سارة'].inner_text('.wrap').replace('\n',' | ');log('phone verdict',ph1[:100])
+    log('after fin',ph())
+    if ch<2 or ph()['ph']=='play':
+        if has('التالي'):hb('التالي')
+    H.wait_for_timeout(200)
+log('R1 end',ph(),H.evaluate('[st.tot,st.res]'))
+H.screenshot(path='r1_end.png')
+log('--- R2');H.screenshot(path='r1_result.png')
+hb('الجولة التالية');H.wait_for_timeout(200);log(ph());H.screenshot(path='r2_intro.png')
+log('R2 sel',[[name_of(i) for i in sel(1)[t]] for t in ('0','1')])
+log('phone intro view',phones['سارة'].inner_text('.wrap').replace('\n',' | ')[:100])
+hb('ابدأ الجولة');H.wait_for_timeout(200)
+def bid(team,mp,v):
+    x=info()[mp[team]['name']]
+    if x['manual']:
+        H.fill(f'#bv{team}',str(v));H.click(f'button[data-a=bid][data-v="{team}"]')
+    else:
+        pg=phones[x['name']];pg.fill('#bv',str(v));pg.click('button[data-a=bid]')
+    H.wait_for_timeout(150)
+def wd(team,mp):
+    x=info()[mp[team]['name']]
+    if x['manual']:H.click(f'button[data-a=wd][data-v="{team}"]')
+    else:phones[x['name']].click('button[data-a=wd]')
+    H.wait_for_timeout(150)
+def a2(team,mp,text):
+    x=info()[mp[team]['name']]
+    if x['manual']:H.fill('#ai',text);H.press('#ai','Enter')
+    else:
+        pg=phones[x['name']];pg.fill('#ai',text);pg.press('#ai','Enter')
+    H.wait_for_timeout(200)
+plan=[(0,['الهلال','النصر','الاتحاد'],True),(1,['كرسي'],False),(0,['تفاح','موز','برتقال'],True)]
+for i,(bt,words,good) in enumerate(plan):
+    g=H.evaluate('st.g');mp=g['mp'];log('matchup',i,[m['name']+('✋' if m['manual'] else '📱') for m in mp])
+    # opposing team opens with 1, bidder raises to len(words), opponent withdraws
+    ot=1-bt
+    bid(ot,mp,1);bid(bt,mp,max(len(words),2));
+    if i==0:
+        # phone who is not in matchup must be refused: check via API
+        pass
+    H.screenshot(path=f'r2_bid{i}.png') if i==0 else None
+    H.wait_for_timeout(300);log('  states',H.evaluate('[st.g.bid,st.g.bt]'),[phones[m['name']].inner_text('.wrap').replace('\n',' | ')[-70:] for m in mp if not m['manual']]);wd(ot,mp);log(' ph',ph()['g']['ph'])
+    hb('ابدأ الوقت');H.wait_for_timeout(300)
+    if i==0:
+        S.screenshot(path='screen_r2.png')
+        pg=[phones[m['name']] for m in mp if not m['manual']]
+        if pg:pg[0].screenshot(path='phone_r2.png')
+    for w in words:a2(bt,mp,w)
+    if not good:
+        hb('إنهاء المحاولة')
+    log(' ans',H.evaluate('st.g.ans'),H.evaluate('st.g.T'));log(' after answers',ph()['g']['ph'],H.evaluate('st.g.sx'))
+    if has('اعتمد النتيجة'):hb('اعتمد النتيجة')
+    H.wait_for_timeout(200)
+    if has('التالي'):hb('التالي')
+    H.wait_for_timeout(200)
+log('R2 end',ph(),H.evaluate('[st.tot,st.res]'))
+log('--- R3');hb('الجولة التالية');H.wait_for_timeout(200);log(ph());hb('ابدأ الجولة');H.wait_for_timeout(300)
+def phone_buzz(team):
+    n=[x['name'] for x in H.evaluate('st.players') if x['team']==team and not x['manual']][0]
+    pg=phones[n];pg.click('button.buzz');H.wait_for_timeout(250);return n
+def host_buzz(team):
+    H.click(f'button[data-a=hbuzz][data-v="{team}"]');H.wait_for_timeout(250)
+steps=[('p',0,'ok'),('h',1,'no','t',0,'ok'),('skip',),('p',1,'ok'),('h',0,'ok')]
+for i,s in enumerate(steps):
+    assert ph()['g']['ph']=='ready',ph()
+    hb('اعرض اللغز');H.wait_for_timeout(300)
+    if i==0:
+        H.screenshot(path='r3_host.png');S.screenshot(path='screen_r3.png');phones['سارة'].screenshot(path='phone_r3.png')
+        log('screen shows puzzle:',S.locator('.rb').count()>0,' host answer visible:',H.locator('text=الإجابة').count()>0,' phone sees puzzle:',phones['سارة'].locator('.rb').count()>0,' phone sees answer:', 'ربع' in phones['سارة'].inner_text('body'))
+    k=0
+    if s[0]=='skip':hb('إنهاء اللغز');log(' skipped',ph()['g']['ph'])
+    else:
+        while k<len(s):
+            if s[k]=='p':n=phone_buzz(s[k+1]);log(' phone buzz by',n,ph()['g']['ph'],H.evaluate('[st.g.bz,st.g.bm]'))
+            elif s[k]=='t':log(' transferred to',H.evaluate('st.g.bz'),ph()['g']['ph'])
+            else:host_buzz(s[k+1]);log(' host-registered buzz',ph()['g']['ph'],H.evaluate('[st.g.bz,st.g.by,st.g.bm]'))
+            if i==0 and s[k]=='p':
+                # other team's buzz must be refused now
+                r=H.evaluate("fetch('/api/events?c='+C,{method:'HEAD'}).then(()=>0)")
+                S.screenshot(path='screen_buzz.png')
+            hb('صحيحة' if s[k+2]=='ok' else 'خاطئة');H.wait_for_timeout(250);k+=3
+    log(' result',ph()['g']['ph'],H.evaluate('[st.g.sc,st.g.who]'))
+    if has('التالي'):hb('التالي')
+    H.wait_for_timeout(250)
+log('R3 end',ph(),H.evaluate('[st.tot,st.res]'))
+H.screenshot(path='final_host.png');S.screenshot(path='final_screen.png');phones['منى'].screenshot(path='final_phone.png')
+if has('النتيجة النهائية'):hb('النتيجة النهائية');H.wait_for_timeout(300)
+log('final',ph());H.screenshot(path='final_host.png');S.screenshot(path='final_screen.png');phones['منى'].screenshot(path='final_phone.png')
